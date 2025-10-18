@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p app/{api,core,models,services,utils} tests/{unit,integration} scripts alembic/versions .github/workflows k8s terraform)",
+      "Bash(chmod +x scripts/import_xlsx.py scripts/manage.py)",
+      "Bash(docker-compose restart web)",
+      "Bash(docker-compose logs web --tail=20)",
+      "Bash(docker-compose logs web --tail=10)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

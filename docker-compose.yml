@@ -1,0 +1,190 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: quiz_db
+    environment:
+      POSTGRES_DB: quiz_db
+      POSTGRES_USER: quiz_user
+      POSTGRES_PASSWORD: quiz_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quiz_user -d quiz_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - quiz_network
+
+  # Test Database
+  db_test:
+    image: postgres:15-alpine
+    container_name: quiz_db_test
+    environment:
+      POSTGRES_DB: quiz_test_db
+      POSTGRES_USER: quiz_user
+      POSTGRES_PASSWORD: quiz_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quiz_user -d quiz_test_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - quiz_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: quiz_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - quiz_network
+
+  # Test Redis
+  redis_test:
+    image: redis:7-alpine
+    container_name: quiz_redis_test
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - quiz_network
+
+  # FastAPI Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: quiz_api
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://quiz_user:quiz_password@db:5432/quiz_db
+      - DATABASE_TEST_URL=postgresql+asyncpg://quiz_user:quiz_password@db_test:5432/quiz_test_db
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_TEST_URL=redis://redis_test:6379/0
+      - SECRET_KEY=your-super-secret-development-key
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - CORS_ORIGINS=["http://localhost:3000","http://localhost:5173","http://127.0.0.1:3000","http://127.0.0.1:5173","http://192.168.0.156:3000"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - quiz_network
+
+  # Celery Worker (Optional)
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: quiz_celery_worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://quiz_user:quiz_password@db:5432/quiz_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - SECRET_KEY=your-super-secret-development-key
+      - DEBUG=true
+      - ENVIRONMENT=development
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+    command: celery -A app.core.celery worker --loglevel=info
+    networks:
+      - quiz_network
+
+  # Flower - Celery Monitoring (Optional)
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: quiz_flower
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    ports:
+      - "5555:5555"
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+    command: celery -A app.core.celery flower
+    networks:
+      - quiz_network
+
+  # Prometheus - Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: quiz_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - quiz_network
+
+  # Grafana - Metrics Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: quiz_grafana
+    ports:
+      - "4001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - quiz_network
+
+volumes:
+  postgres_data:
+  postgres_test_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  quiz_network:
+    driver: bridge

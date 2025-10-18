@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 800">
+  <!-- OGS Text -->
+  <text x="100" y="400" font-family="Arial, sans-serif" font-size="350" font-weight="bold" fill="black">oGS</text>
+  
+  <!-- Omnicom Global Solutions Text -->
+  <text x="100" y="700" font-family="Arial, sans-serif" font-size="80" font-weight="normal" fill="black">
+    <tspan font-weight="bold">Omnicom</tspan> Global Solutions
+  </text>
+</svg>
