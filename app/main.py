@@ -174,15 +174,9 @@ async def health_check():
 async def metrics():
     """Prometheus metrics endpoint."""
     if not settings.PROMETHEUS_METRICS_ENABLED:
-        return JSONResponse(
-            status_code=404,
-            content={"error": "Metrics not enabled"}
-        )
+        return JSONResponse(status_code=404, content={"error": "Metrics not enabled"})
 
-    return Response(
-        generate_latest(),
-        media_type=CONTENT_TYPE_LATEST
-    )
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 # Include API router
@@ -193,8 +187,10 @@ app.include_router(api_router, prefix="/api/v1")
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists() and static_dir.is_dir():
     # Mount static assets (JS, CSS, images, etc.)
-    app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets")
-    
+    app.mount(
+        "/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets"
+    )
+
     # Serve index.html for all frontend routes (SPA routing)
     @app.get("/{full_path:path}", tags=["Frontend"])
     async def serve_frontend(full_path: str):
@@ -202,12 +198,13 @@ if static_dir.exists() and static_dir.is_dir():
         # If path starts with /api, /docs, /openapi, /health, /metrics - skip
         if full_path.startswith(("api/", "docs", "openapi", "health", "metrics")):
             return JSONResponse({"error": "Not found"}, status_code=404)
-        
+
         # Serve index.html for all other routes (React Router handles the rest)
         index_file = static_dir / "index.html"
         if index_file.exists():
             return FileResponse(index_file)
         return JSONResponse({"error": "Frontend not built"}, status_code=404)
+
 else:
     # Fallback if frontend not built
     @app.get("/", tags=["Root"])
@@ -224,6 +221,7 @@ else:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "app.main:app",
         host=settings.HOST,
