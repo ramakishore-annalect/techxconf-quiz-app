@@ -52,7 +52,9 @@ async def lifespan(app: FastAPI):
             logger.info("Database initialized")
         except Exception as e:
             logger.warning(f"Database initialization failed: {e}", exc_info=True)
-            logger.info("App will continue without database (some features may not work)")
+            logger.info(
+                "App will continue without database (some features may not work)"
+            )
 
         # Initialize Redis with timeout
         try:
@@ -71,12 +73,12 @@ async def lifespan(app: FastAPI):
             await close_db()
         except Exception as e:
             logger.warning(f"Database close failed: {e}")
-        
+
         try:
             await close_redis()
         except Exception as e:
             logger.warning(f"Redis close failed: {e}")
-        
+
         logger.info("Application shutdown complete")
 
 
