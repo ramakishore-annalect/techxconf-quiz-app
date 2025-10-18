@@ -17,6 +17,12 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import time
 import uuid
 
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+
 from app.core.config import settings
 from app.core.database import init_db, close_db
 from app.core.redis import init_redis, close_redis
@@ -195,6 +201,94 @@ async def metrics():
         return JSONResponse(status_code=404, content={"error": "Metrics not enabled"})
 
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+# Memory monitoring endpoint (for Render resource analysis)
+@app.get("/health/memory", tags=["Monitoring"])
+async def memory_status():
+    """
+    Monitor memory usage of the application process.
+    
+    Useful for:
+    - Debugging OOM (Out of Memory) issues on Render
+    - Determining if you need to upgrade to a higher tier
+    - Monitoring memory leaks
+    
+    Example usage:
+        curl https://your-app.onrender.com/health/memory
+    """
+    if not PSUTIL_AVAILABLE:
+        return JSONResponse(
+            status_code=501,
+            content={
+                "error": "psutil not installed",
+                "message": "Add 'psutil==5.9.6' to requirements.txt to enable memory monitoring"
+            }
+        )
+    
+    try:
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info()
+        
+        # Get system memory info
+        system_memory = psutil.virtual_memory()
+        
+        return {
+            "process": {
+                "rss_mb": round(memory_info.rss / 1024 / 1024, 2),  # Resident Set Size (actual RAM used)
+                "vms_mb": round(memory_info.vms / 1024 / 1024, 2),  # Virtual Memory Size
+                "percent": round(process.memory_percent(), 2),       # % of system memory
+                "pid": os.getpid(),
+            },
+            "system": {
+                "total_mb": round(system_memory.total / 1024 / 1024, 2),
+                "available_mb": round(system_memory.available / 1024 / 1024, 2),
+                "used_mb": round(system_memory.used / 1024 / 1024, 2),
+                "percent": system_memory.percent,
+            },
+            "thresholds": {
+                "render_starter_limit_mb": 512,
+                "render_standard_limit_mb": 2048,
+                "warning_threshold_percent": 80,
+                "critical_threshold_percent": 90,
+            },
+            "status": _get_memory_status(memory_info.rss / 1024 / 1024, system_memory.total / 1024 / 1024),
+            "recommendation": _get_memory_recommendation(memory_info.rss / 1024 / 1024),
+        }
+    except Exception as e:
+        logger.error(f"Failed to get memory stats: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Failed to retrieve memory stats", "details": str(e)}
+        )
+
+
+def _get_memory_status(used_mb: float, total_mb: float) -> str:
+    """Determine memory status based on usage."""
+    percent = (used_mb / total_mb) * 100
+    
+    if percent > 90:
+        return "critical"
+    elif percent > 80:
+        return "warning"
+    elif percent > 70:
+        return "elevated"
+    else:
+        return "healthy"
+
+
+def _get_memory_recommendation(used_mb: float) -> str:
+    """Provide tier recommendation based on memory usage."""
+    if used_mb < 400:
+        return "✅ Starter tier (512MB) should be sufficient"
+    elif used_mb < 500:
+        return "⚠️ Close to Starter tier limit, monitor closely or consider Standard"
+    elif used_mb < 1800:
+        return "✅ Standard tier (2GB) recommended"
+    elif used_mb < 3800:
+        return "✅ Pro tier (4GB) recommended"
+    else:
+        return "⚠️ Consider Pro Plus tier (8GB) or optimize application"
 
 
 # Include API router

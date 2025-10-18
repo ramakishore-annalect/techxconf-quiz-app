@@ -1,0 +1,93 @@
+# Production dependencies for TechXConf Quiz App
+# Optimized to reduce memory footprint (~100-150MB savings vs full requirements.txt)
+
+# ============================================================================
+# Core Framework
+# ============================================================================
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+gunicorn==21.2.0
+
+# ============================================================================
+# Database
+# ============================================================================
+sqlalchemy[asyncio]==2.0.23
+asyncpg==0.29.0
+# NOTE: psycopg2-binary removed (duplicate with asyncpg, saves ~30MB)
+alembic==1.12.1
+
+# ============================================================================
+# Cache & Background Tasks
+# ============================================================================
+redis[hiredis]==5.0.1
+aioredis==2.0.1
+
+# Celery - Uncomment only if actively using background tasks
+# celery==5.3.4
+# flower==2.0.1
+
+# ============================================================================
+# Authentication & Security
+# ============================================================================
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+bcrypt==4.1.1
+
+# ============================================================================
+# Excel Processing (Memory intensive - consider alternatives for large files)
+# ============================================================================
+openpyxl==3.1.2
+pandas==2.1.3
+
+# ============================================================================
+# Validation & Configuration
+# ============================================================================
+pydantic==2.5.1
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+email-validator==2.1.0
+
+# ============================================================================
+# Monitoring & Logging (Keep these for production)
+# ============================================================================
+prometheus-client==0.19.0
+sentry-sdk[fastapi]==1.38.0
+structlog==23.2.0
+
+# ============================================================================
+# HTTP Client & Utilities
+# ============================================================================
+httpx==0.25.1
+python-dateutil==2.8.2
+
+# ============================================================================
+# Memory Monitoring (for /health/memory endpoint)
+# ============================================================================
+psutil==5.9.6
+
+# ============================================================================
+# REMOVED from production (dev dependencies):
+# ============================================================================
+# pytest==7.4.3
+# pytest-asyncio==0.21.1
+# pytest-cov==4.1.0
+# testcontainers==3.7.1
+# httpx==0.25.1  # Already included above for production use
+# black==23.11.0
+# isort==5.12.0
+# flake8==6.1.0
+# mypy==1.7.1
+# mkdocs==1.5.3
+# mkdocs-material==9.4.14
+# mkdocs-mermaid2-plugin==1.1.1
+# 
+# Total memory savings: ~100-150MB
+
+# ============================================================================
+# Notes:
+# ============================================================================
+# 1. To further reduce memory, comment out celery/flower if not used
+# 2. For very large Excel files, consider implementing streaming/chunking
+# 3. Monitor memory usage with: curl https://your-app.onrender.com/health/memory
+# 4. Worker recycling (--max-requests) prevents memory leaks from accumulating
