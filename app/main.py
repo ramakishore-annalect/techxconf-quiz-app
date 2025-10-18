@@ -1,11 +1,14 @@
 """Main FastAPI application."""
 
 import logging
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 import structlog
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -186,17 +189,37 @@ async def metrics():
 app.include_router(api_router, prefix="/api/v1")
 
 
-# Root endpoint
-@app.get("/", tags=["Root"])
-async def root():
-    """Root endpoint."""
-    return {
-        "message": f"Welcome to {settings.APP_NAME}",
-        "version": settings.APP_VERSION,
-        "environment": settings.ENVIRONMENT,
-        "docs_url": "/docs",
-        "openapi_url": "/openapi.json",
-    }
+# Serve frontend static files (if they exist)
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists() and static_dir.is_dir():
+    # Mount static assets (JS, CSS, images, etc.)
+    app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets")
+    
+    # Serve index.html for all frontend routes (SPA routing)
+    @app.get("/{full_path:path}", tags=["Frontend"])
+    async def serve_frontend(full_path: str):
+        """Serve React frontend for all non-API routes."""
+        # If path starts with /api, /docs, /openapi, /health, /metrics - skip
+        if full_path.startswith(("api/", "docs", "openapi", "health", "metrics")):
+            return JSONResponse({"error": "Not found"}, status_code=404)
+        
+        # Serve index.html for all other routes (React Router handles the rest)
+        index_file = static_dir / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+        return JSONResponse({"error": "Frontend not built"}, status_code=404)
+else:
+    # Fallback if frontend not built
+    @app.get("/", tags=["Root"])
+    async def root():
+        """Root endpoint."""
+        return {
+            "message": f"Welcome to {settings.APP_NAME}",
+            "version": settings.APP_VERSION,
+            "environment": settings.ENVIRONMENT,
+            "docs_url": "/docs",
+            "openapi_url": "/openapi.json",
+        }
 
 
 if __name__ == "__main__":
