@@ -28,14 +28,16 @@ class Settings(BaseSettings):
     def assemble_db_connection(cls, v: Optional[str]) -> Any:
         if isinstance(v, str):
             return v
-        return PostgresDsn.build(
-            scheme="postgresql+asyncpg",
-            username=os.getenv("DB_USER", "quiz_user"),
-            password=os.getenv("DB_PASSWORD", "quiz_password"),
-            host=os.getenv("DB_HOST", "localhost"),
-            port=os.getenv("DB_PORT", "5432"),
-            path=os.getenv("DB_NAME", "quiz_db"),
-        )
+            port_env = os.getenv("DB_PORT", "5432")
+            port_int = int(port_env) if port_env is not None else None
+            return PostgresDsn.build(
+                scheme="postgresql+asyncpg",
+                username=os.getenv("DB_USER", "quiz_user"),
+                password=os.getenv("DB_PASSWORD", "quiz_password"),
+                host=os.getenv("DB_HOST", "localhost"),
+                port=port_int,
+                path=os.getenv("DB_NAME", "quiz_db"),
+            )
 
     # Redis
     REDIS_URL: Optional[RedisDsn] = None
@@ -46,12 +48,14 @@ class Settings(BaseSettings):
     def assemble_redis_connection(cls, v: Optional[str]) -> Any:
         if isinstance(v, str):
             return v
-        return RedisDsn.build(
-            scheme="redis",
-            host=os.getenv("REDIS_HOST", "localhost"),
-            port=os.getenv("REDIS_PORT", "6379"),
-            path=os.getenv("REDIS_DB", "0"),
-        )
+            redis_port_env = os.getenv("REDIS_PORT", "6379")
+            redis_port_int = int(redis_port_env) if redis_port_env is not None else None
+            return RedisDsn.build(
+                scheme="redis",
+                host=os.getenv("REDIS_HOST", "localhost"),
+                port=redis_port_int,
+                path=os.getenv("REDIS_DB", "0"),
+            )
 
     # Security
     SECRET_KEY: str = "your-super-secret-key-change-this-in-production"
