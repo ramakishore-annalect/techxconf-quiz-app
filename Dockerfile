@@ -56,7 +56,7 @@ RUN chown -R appuser:appuser /app
 # Switch to non-root user
 USER appuser
 
-# Expose port
+# Expose port (Railway uses $PORT environment variable)
 EXPOSE 8000
 
 # Health check
@@ -64,4 +64,5 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application
-CMD ["gunicorn", "--worker-class", "uvicorn.workers.UvicornWorker", "--workers", "4", "--bind", "0.0.0.0:8000", "app.main:app"]
+# Railway provides $PORT environment variable, defaults to 8000 if not set
+CMD gunicorn --worker-class uvicorn.workers.UvicornWorker --workers 4 --bind 0.0.0.0:${PORT:-8000} app.main:app
