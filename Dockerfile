@@ -1,68 +1,43 @@
-# Multi-stage Docker build for production
-FROM python:3.11-slim as builder
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
 
 # Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    build-essential \
+    gcc \
+    postgresql-client \
     libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create and set working directory
-WORKDIR /app
-
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Production stage
-FROM python:3.11-slim as production
-
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PATH="/app/.venv/bin:$PATH"
-
-# Install only runtime dependencies
-RUN apt-get update && apt-get install -y \
-    libpq5 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Copy requirements
+COPY requirements.txt .
 
-# Create and set working directory
-WORKDIR /app
-
-# Copy installed packages from builder stage
-COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
-COPY --from=builder /usr/local/bin/ /usr/local/bin/
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY app/ ./app/
-COPY alembic/ ./alembic/
-COPY alembic.ini ./
-COPY scripts/ ./scripts/
+COPY . .
 
-# Change ownership to non-root user
-RUN chown -R appuser:appuser /app
+# Create non-root user
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
 
-# Switch to non-root user
 USER appuser
 
-# Expose port (Railway uses $PORT environment variable)
+# Expose port
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the application
-# Railway provides $PORT environment variable, defaults to 8000 if not set
-CMD gunicorn --worker-class uvicorn.workers.UvicornWorker --workers 4 --bind 0.0.0.0:${PORT:-8000} app.main:app
+# Run application
+CMD ["gunicorn", "--worker-class", "uvicorn.workers.UvicornWorker", "--workers", "2", "--bind", "0.0.0.0:8000", "--timeout", "120", "app.main:app"]

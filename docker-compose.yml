@@ -1,6 +1,14 @@
 version: '3.8'
 
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      - VITE_API_URL=http://13.127.212.77:8000/api/v1  # ← Add this
+    ports:
+      - "3000:3000"
   # PostgreSQL Database
   db:
     image: postgres:15-alpine
