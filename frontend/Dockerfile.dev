@@ -3,7 +3,7 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies first (for better caching)
 COPY package*.json ./
 RUN npm install
 
@@ -14,4 +14,5 @@ COPY . .
 EXPOSE 3000
 
 # Start Vite dev server with host exposed
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
+# Use node directly instead of npm bin wrapper to avoid Windows/Linux compatibility issues
+CMD ["node", "node_modules/vite/bin/vite.js", "--host", "0.0.0.0", "--port", "3000"]
