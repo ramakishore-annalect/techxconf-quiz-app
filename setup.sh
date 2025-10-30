@@ -213,8 +213,8 @@ print_step "Creating admin user"
 docker compose -f docker-compose.local.yml exec -T backend python << 'PYTHON_SCRIPT'
 import asyncio
 from app.core.database import AsyncSessionLocal
-from app.models.user import User
-from app.utils.security import get_password_hash
+from app.models.user import User, UserRole
+from app.utils.security import hash_password
 from sqlalchemy import select
 
 async def create_admin():
@@ -229,10 +229,11 @@ async def create_admin():
         
         admin = User(
             email="admin@example.com",
-            hashed_password=get_password_hash("Admin123!"),
+            password_hash=hash_password("Admin123!"),
             display_name="Admin User",
-            is_admin=True,
-            is_active=True
+            role=UserRole.ADMIN,
+            is_active=True,
+            is_verified=True
         )
         db.add(admin)
         await db.commit()
@@ -255,20 +256,52 @@ fi
 # Step 10: Import sample questions
 if [ "$SKIP_QUESTIONS" = false ]; then
     print_step "Importing sample questions"
-    
+
     if [ -f "$QUESTIONS_FILE" ]; then
         print_info "Importing questions from $QUESTIONS_FILE..."
+
+        # Wait a bit more to ensure backend is fully ready
+        print_info "Ensuring backend is fully ready for import..."
+        sleep 3
+
+        # Try importing questions with better error handling
         if docker compose -f docker-compose.local.yml exec -T backend python scripts/import_xlsx.py "$QUESTIONS_FILE" --mode upsert; then
             print_success "Sample questions imported successfully"
+
+            # Verify questions were loaded by checking count
+            print_info "Verifying questions were loaded..."
+            QUESTION_COUNT=$(docker compose -f docker-compose.local.yml exec -T backend python -c "
+import asyncio
+from app.core.database import AsyncSessionLocal
+from app.models.question import Question
+from sqlalchemy import select, func
+
+async def count_questions():
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(func.count(Question.id)))
+        return result.scalar()
+
+count = asyncio.run(count_questions())
+print(count)
+" 2>/dev/null)
+
+            if [ "$QUESTION_COUNT" -gt 0 ] 2>/dev/null; then
+                print_success "Questions verified: $QUESTION_COUNT questions loaded"
+            else
+                print_warning "Could not verify question count, but import appeared successful"
+            fi
         else
             print_warning "Failed to import questions, but application will still work"
             print_info "You can manually import questions later using:"
             echo -e "   ${NC}docker compose -f docker-compose.local.yml exec backend python scripts/import_xlsx.py <file.xlsx>"
+            print_info "Check backend logs for more details:"
+            echo -e "   ${NC}docker compose -f docker-compose.local.yml logs backend --tail 50"
         fi
     else
         print_warning "Questions file '$QUESTIONS_FILE' not found"
         print_info "Available question files:"
         ls -1 *.xlsx 2>/dev/null | sed 's/^/   - /' || echo "   No .xlsx files found"
+        print_info "You can specify a different file with: ./setup.sh --questions-file <filename.xlsx>"
     fi
 fi
 
