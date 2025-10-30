@@ -151,6 +151,20 @@ class QuizService:
         self, quiz_id: str, request: QuizStartRequest, user_id: Optional[UUID] = None
     ) -> QuizStartResponse:
         """Start a new quiz session."""
+        # Check if this mobile number has already taken a quiz (completed session)
+        existing_query = select(QuizSession).where(
+            QuizSession.participant_mobile == request.participant_mobile,
+            QuizSession.status == SessionStatus.FINISHED,
+        )
+        result = await self.db.execute(existing_query)
+        existing_session = result.scalar_one_or_none()
+
+        if existing_session:
+            raise ValueError(
+                f"This mobile number has already taken a quiz. "
+                f"Each participant can only take the quiz once."
+            )
+
         # Get available questions based on request criteria
         questions = await self._get_questions_for_quiz(quiz_id, request)
 
@@ -165,9 +179,13 @@ class QuizService:
             questions, request.num_questions, request.difficulty_mix, request.seed
         )
 
-        # Create quiz session
+        # Create quiz session with participant information
         session = await self._create_quiz_session(
-            selected_questions, user_id, request.seed
+            selected_questions,
+            user_id,
+            request.seed,
+            request.participant_name,
+            request.participant_mobile,
         )
 
         # Get topics and difficulty distribution
@@ -353,6 +371,7 @@ class QuizService:
                 LeaderboardEntry(
                     rank=i,
                     display_name=entry.display_name or "Anonymous",
+                    participant_mobile=entry.participant_mobile,
                     score=entry.score,
                     total_questions=entry.total_questions,
                     percentage=entry.percentage,
@@ -436,7 +455,12 @@ class QuizService:
             return selected
 
     async def _create_quiz_session(
-        self, questions: List[Question], user_id: Optional[UUID], seed: Optional[int]
+        self,
+        questions: List[Question],
+        user_id: Optional[UUID],
+        seed: Optional[int],
+        participant_name: Optional[str] = None,
+        participant_mobile: Optional[str] = None,
     ) -> QuizSession:
         """Create a new quiz session."""
         # Set quiz expiration to 48 hours from now (reasonable completion time)
@@ -444,6 +468,8 @@ class QuizService:
 
         session = QuizSession(
             user_id=user_id,
+            participant_name=participant_name,
+            participant_mobile=participant_mobile,
             quiz_definition={
                 "question_ids": [str(q.id) for q in questions],
                 "seed": seed,
@@ -599,9 +625,11 @@ class QuizService:
 
     async def _create_leaderboard_entry(self, session: QuizSession) -> None:
         """Create leaderboard entry for completed session."""
-        # Get display name
+        # Get display name - prioritize participant_name from session
         display_name = "Anonymous"
-        if session.user_id:
+        if session.participant_name:
+            display_name = session.participant_name
+        elif session.user_id:
             user_query = select(User.display_name, User.email).where(
                 User.id == session.user_id
             )
@@ -623,6 +651,7 @@ class QuizService:
             user_id=session.user_id,
             session_id=session.id,
             display_name=display_name,
+            participant_mobile=session.participant_mobile,  # Store mobile number
             score=session.score,
             total_questions=session.total_questions,
             percentage=int(session.percentage_score),

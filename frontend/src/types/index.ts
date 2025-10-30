@@ -3,6 +3,7 @@ export interface User {
   id: string;
   email: string;
   display_name: string | null;
+  mobile_number: string | null;
   role: 'user' | 'admin';
   is_active: boolean;
   is_verified: boolean;
@@ -26,6 +27,12 @@ export interface RegisterRequest {
   email: string;
   password: string;
   display_name?: string;
+  mobile_number?: string;
+}
+
+export interface UpdateProfileRequest {
+  display_name?: string;
+  mobile_number?: string;
 }
 
 // Quiz Types
@@ -49,6 +56,8 @@ export interface StartQuizRequest {
   difficulty_mix?: Record<string, number>;
   topics?: string[];
   seed?: number;
+  participant_name: string;
+  participant_mobile: string;
 }
 
 export interface QuizSession {
@@ -113,6 +122,7 @@ export interface SessionResults {
 export interface LeaderboardEntry {
   rank: number;
   display_name: string;
+  participant_mobile?: string;
   score: number;
   total_questions: number;
   percentage: number;

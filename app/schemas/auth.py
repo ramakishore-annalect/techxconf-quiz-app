@@ -13,6 +13,7 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str
     display_name: Optional[str] = None
+    mobile_number: Optional[str] = None
 
     @field_validator("password")
     @classmethod
@@ -26,6 +27,19 @@ class UserRegister(BaseModel):
             raise ValueError("Password must contain at least one lowercase letter")
         if not any(c.isdigit() for c in v):
             raise ValueError("Password must contain at least one digit")
+        return v
+
+    @field_validator("mobile_number")
+    @classmethod
+    def validate_mobile_number(cls, v):
+        """Validate mobile number."""
+        if v is not None:
+            # Remove any spaces or dashes
+            cleaned = v.replace(" ", "").replace("-", "")
+            if not cleaned.isdigit():
+                raise ValueError("Mobile number must contain only digits")
+            if len(cleaned) != 10:
+                raise ValueError("Mobile number must be exactly 10 digits")
         return v
 
 
@@ -57,6 +71,7 @@ class UserProfile(BaseModel):
     id: UUID
     email: str
     display_name: Optional[str]
+    mobile_number: Optional[str]
     role: str
     is_active: bool
     is_verified: bool
@@ -70,7 +85,21 @@ class UserUpdate(BaseModel):
     """User update schema."""
 
     display_name: Optional[str] = None
+    mobile_number: Optional[str] = None
     email: Optional[EmailStr] = None
+
+    @field_validator("mobile_number")
+    @classmethod
+    def validate_mobile_number(cls, v):
+        """Validate mobile number."""
+        if v is not None:
+            # Remove any spaces or dashes
+            cleaned = v.replace(" ", "").replace("-", "")
+            if not cleaned.isdigit():
+                raise ValueError("Mobile number must contain only digits")
+            if len(cleaned) != 10:
+                raise ValueError("Mobile number must be exactly 10 digits")
+        return v
 
 
 class PasswordChange(BaseModel):

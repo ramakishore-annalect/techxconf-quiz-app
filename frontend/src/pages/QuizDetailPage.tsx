@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { QuizDetail } from '@/types';
 import { apiService } from '@/services/api';
 import { Button } from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+import toast from 'react-hot-toast';
 
 const QuizDetailPage: React.FC = () => {
   const { quizId } = useParams<{ quizId: string }>();
@@ -11,6 +13,9 @@ const QuizDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [startingQuiz, setStartingQuiz] = useState(false);
+  const [participantName, setParticipantName] = useState('');
+  const [participantMobile, setParticipantMobile] = useState('');
+  const [errors, setErrors] = useState<{ name?: string; mobile?: string }>({});
 
   useEffect(() => {
     if (quizId) {
@@ -33,19 +38,48 @@ const QuizDetailPage: React.FC = () => {
     }
   };
 
+  const validateForm = (): boolean => {
+    const newErrors: { name?: string; mobile?: string } = {};
+
+    if (!participantName.trim()) {
+      newErrors.name = 'Name is required';
+    }
+
+    if (!participantMobile.trim()) {
+      newErrors.mobile = 'Mobile number is required';
+    } else {
+      const cleaned = participantMobile.replace(/[\s-]/g, '');
+      if (!/^\d{10}$/.test(cleaned)) {
+        newErrors.mobile = 'Mobile number must be exactly 10 digits';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleStartQuiz = async () => {
     if (!quiz) return;
 
+    if (!validateForm()) {
+      return;
+    }
+
     try {
       setStartingQuiz(true);
-      const session = await apiService.startQuizSession(quiz.id);
+      const session = await apiService.startQuizSession(quiz.id, {
+        num_questions: 10, // default 10 questions
+        participant_name: participantName.trim(),
+        participant_mobile: participantMobile.replace(/[\s-]/g, '')
+      });
       // Store session data in sessionStorage for QuizPage to access
       sessionStorage.setItem(`quiz_session_${session.session_id}`, JSON.stringify(session));
       navigate(`/quiz/${quiz.id}/session/${session.session_id}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error starting quiz:', err);
+      const errorMessage = err?.response?.data?.detail || err?.message || 'Failed to start quiz';
+      toast.error(errorMessage);
       setStartingQuiz(false);
-      // Handle error (could show toast notification)
     }
   };
 
@@ -159,16 +193,58 @@ const QuizDetailPage: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Ready to Start?</h3>
 
             <p className="text-gray-600 text-sm mb-6">
-              Click the button below to start taking this quiz. You'll answer {quiz.total_questions} questions
-              covering {quiz.topics.join(', ')}.
+              Please enter your details to take the quiz. Each participant can only take the quiz once.
             </p>
 
+            {/* Participant Form */}
+            <div className="space-y-4 mb-6">
+              <div>
+                <label htmlFor="participantName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  id="participantName"
+                  type="text"
+                  value={participantName}
+                  onChange={(e) => setParticipantName(e.target.value)}
+                  placeholder="Enter your full name"
+                  disabled={startingQuiz}
+                />
+                {errors.name && (
+                  <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="participantMobile" className="block text-sm font-medium text-gray-700 mb-1">
+                  Mobile Number <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  id="participantMobile"
+                  type="tel"
+                  value={participantMobile}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^\d\s-]/g, '');
+                    setParticipantMobile(value);
+                  }}
+                  placeholder="10-digit mobile number"
+                  maxLength={12}
+                  disabled={startingQuiz}
+                />
+                {errors.mobile && (
+                  <p className="mt-1 text-sm text-red-600">{errors.mobile}</p>
+                )}
+                <p className="mt-1 text-xs text-gray-500">
+                  Example: 9876543210
+                </p>
+              </div>
+            </div>
+
             <Button
-              variant="primary"
               size="lg"
-              onClick={handleStartQuiz}
-              loading={startingQuiz}
               className="w-full"
+              onClick={handleStartQuiz}
+              disabled={startingQuiz}
             >
               {startingQuiz ? 'Starting...' : 'Start Quiz'}
             </Button>

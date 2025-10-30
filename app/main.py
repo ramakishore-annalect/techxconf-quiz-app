@@ -19,6 +19,7 @@ import uuid
 
 try:
     import psutil
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
@@ -208,12 +209,12 @@ async def metrics():
 async def memory_status():
     """
     Monitor memory usage of the application process.
-    
+
     Useful for:
     - Debugging OOM (Out of Memory) issues on Render
     - Determining if you need to upgrade to a higher tier
     - Monitoring memory leaks
-    
+
     Example usage:
         curl https://your-app.onrender.com/health/memory
     """
@@ -222,22 +223,26 @@ async def memory_status():
             status_code=501,
             content={
                 "error": "psutil not installed",
-                "message": "Add 'psutil==5.9.6' to requirements.txt to enable memory monitoring"
-            }
+                "message": "Add 'psutil==5.9.6' to requirements.txt to enable memory monitoring",
+            },
         )
-    
+
     try:
         process = psutil.Process(os.getpid())
         memory_info = process.memory_info()
-        
+
         # Get system memory info
         system_memory = psutil.virtual_memory()
-        
+
         return {
             "process": {
-                "rss_mb": round(memory_info.rss / 1024 / 1024, 2),  # Resident Set Size (actual RAM used)
-                "vms_mb": round(memory_info.vms / 1024 / 1024, 2),  # Virtual Memory Size
-                "percent": round(process.memory_percent(), 2),       # % of system memory
+                "rss_mb": round(
+                    memory_info.rss / 1024 / 1024, 2
+                ),  # Resident Set Size (actual RAM used)
+                "vms_mb": round(
+                    memory_info.vms / 1024 / 1024, 2
+                ),  # Virtual Memory Size
+                "percent": round(process.memory_percent(), 2),  # % of system memory
                 "pid": os.getpid(),
             },
             "system": {
@@ -252,21 +257,23 @@ async def memory_status():
                 "warning_threshold_percent": 80,
                 "critical_threshold_percent": 90,
             },
-            "status": _get_memory_status(memory_info.rss / 1024 / 1024, system_memory.total / 1024 / 1024),
+            "status": _get_memory_status(
+                memory_info.rss / 1024 / 1024, system_memory.total / 1024 / 1024
+            ),
             "recommendation": _get_memory_recommendation(memory_info.rss / 1024 / 1024),
         }
     except Exception as e:
         logger.error(f"Failed to get memory stats: {e}", exc_info=True)
         return JSONResponse(
             status_code=500,
-            content={"error": "Failed to retrieve memory stats", "details": str(e)}
+            content={"error": "Failed to retrieve memory stats", "details": str(e)},
         )
 
 
 def _get_memory_status(used_mb: float, total_mb: float) -> str:
     """Determine memory status based on usage."""
     percent = (used_mb / total_mb) * 100
-    
+
     if percent > 90:
         return "critical"
     elif percent > 80:

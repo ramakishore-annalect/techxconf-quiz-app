@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     # Session Configuration
     SESSION_EXPIRE_HOURS: int = 48
     QUESTION_TIME_LIMIT_SECONDS: int = (
-        15  # Each question must be answered within 15 seconds
+        20  # Each question must be answered within 20 seconds
     )
 
     # CORS

@@ -5,6 +5,7 @@ import type {
   AuthTokens,
   LoginRequest,
   RegisterRequest,
+  UpdateProfileRequest,
   Quiz,
   QuizDetail,
   StartQuizRequest,
@@ -164,6 +165,16 @@ export const authApi = {
     }
   },
 
+  updateProfile: async (data: UpdateProfileRequest): Promise<User> => {
+    try {
+      const response: AxiosResponse<User> = await api.patch('/auth/me', data);
+      toast.success('Profile updated successfully!');
+      return response.data;
+    } catch (error) {
+      return handleApiError(error as AxiosError);
+    }
+  },
+
   refreshToken: async (): Promise<AuthTokens> => {
     try {
       const refreshToken = getRefreshToken();
@@ -300,11 +311,13 @@ export const apiService = {
   register: authApi.register,
   logout: authApi.logout,
   getProfile: authApi.getProfile,
+  updateProfile: authApi.updateProfile,
 
   // Quiz methods
   getQuizzes: quizApi.getQuizzes,
   getQuiz: quizApi.getQuizDetail,
-  startQuizSession: (quizId: string) => quizApi.startQuiz(quizId, { num_questions: 10 }),
+  startQuizSession: (quizId: string, requestData: StartQuizRequest) =>
+    quizApi.startQuiz(quizId, requestData),
   getQuestion: async (sessionId: string, questionIndex: number) => {
     try {
       const response: AxiosResponse<Question> = await api.get(`/quizzes/sessions/${sessionId}/question/${questionIndex}`);

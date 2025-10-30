@@ -49,6 +49,24 @@ class QuizStartRequest(BaseModel):
     )
     topics: Optional[List[str]] = Field(None, description="Filter by topics")
     seed: Optional[int] = Field(None, description="Seed for reproducible randomization")
+    participant_name: str = Field(
+        ..., min_length=1, max_length=100, description="Participant's full name"
+    )
+    participant_mobile: str = Field(
+        ..., min_length=10, max_length=15, description="Participant's mobile number"
+    )
+
+    @field_validator("participant_mobile")
+    @classmethod
+    def validate_mobile(cls, v):
+        """Validate mobile number."""
+        # Remove spaces and dashes
+        cleaned = v.replace(" ", "").replace("-", "")
+        if not cleaned.isdigit():
+            raise ValueError("Mobile number must contain only digits")
+        if len(cleaned) != 10:
+            raise ValueError("Mobile number must be exactly 10 digits")
+        return cleaned
 
     @field_validator("difficulty_mix", mode="before")
     @classmethod
@@ -188,6 +206,7 @@ class LeaderboardEntry(BaseModel):
 
     rank: int
     display_name: str
+    participant_mobile: Optional[str] = None
     score: int
     total_questions: int
     percentage: int

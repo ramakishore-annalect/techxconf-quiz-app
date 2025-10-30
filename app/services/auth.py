@@ -16,7 +16,7 @@ from app.utils.security import (
     hash_password,
     create_access_token,
     create_refresh_token,
-    verify_refresh_token
+    verify_refresh_token,
 )
 
 
@@ -42,6 +42,7 @@ class AuthService:
             email=user_data.email,
             password_hash=hash_password(user_data.password),
             display_name=user_data.display_name or user_data.email.split("@")[0],
+            mobile_number=user_data.mobile_number,
             role=UserRole.USER,
             is_active=True,
             is_verified=False,  # Email verification can be added later
@@ -81,13 +82,11 @@ class AuthService:
         refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
 
         access_token = create_access_token(
-            subject=str(user.id),
-            expires_delta=access_token_expires
+            subject=str(user.id), expires_delta=access_token_expires
         )
 
         refresh_token = create_refresh_token(
-            subject=str(user.id),
-            expires_delta=refresh_token_expires
+            subject=str(user.id), expires_delta=refresh_token_expires
         )
 
         return access_token, refresh_token

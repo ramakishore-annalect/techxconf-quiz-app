@@ -38,13 +38,13 @@ const HomePage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
           <div className="text-center">
             <div className="flex justify-center mb-8">
-              <img src="/ogs-logo.png" alt="OGS Logo" className="h-24 w-auto" />
+              <img src="/ogs-logo.png" alt="OGS Logo" className="h-16 w-auto" />
             </div>
             <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              OGS TechXConf QuizApp
+              TechXConf QuizApp
             </h1>
             <p className="text-xl md:text-2xl mb-8 text-primary-100">
-              Test your technical knowledge with 5-minute timed quizzes
+              Challenge yourself. Compete. Conquer the leaderboard!
             </p>
 
             {isAuthenticated ? (

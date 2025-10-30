@@ -31,16 +31,9 @@ const QuizzesPage: React.FC = () => {
   // For now, show all quizzes without filtering
   const filteredQuizzes = quizzes;
 
-  const handleStartQuiz = async (quizId: string) => {
-    try {
-      const session = await apiService.startQuizSession(quizId);
-      // Store session data in sessionStorage for QuizPage to access
-      sessionStorage.setItem(`quiz_session_${session.session_id}`, JSON.stringify(session));
-      navigate(`/quiz/${quizId}/session/${session.session_id}`);
-    } catch (err) {
-      console.error('Error starting quiz:', err);
-      // Handle error (could show toast notification)
-    }
+  const handleStartQuiz = (quizId: string) => {
+    // Navigate to quiz detail page where user will enter participant info
+    navigate(`/quiz/${quizId}`);
   };
 
   if (loading) {

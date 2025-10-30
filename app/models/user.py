@@ -22,12 +22,15 @@ class User(BaseModel):
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(128), nullable=False)
     display_name = Column(String(100), nullable=True)
+    mobile_number = Column(String(15), nullable=True)
     role = Column(Enum(UserRole), default=UserRole.USER, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
 
     # Relationships
-    quiz_sessions = relationship("QuizSession", back_populates="user", cascade="all, delete-orphan")
+    quiz_sessions = relationship(
+        "QuizSession", back_populates="user", cascade="all, delete-orphan"
+    )
     created_questions = relationship("Question", back_populates="created_by_user")
 
     def __repr__(self) -> str:

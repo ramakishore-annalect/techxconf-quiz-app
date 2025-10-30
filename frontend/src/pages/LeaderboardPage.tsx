@@ -181,8 +181,11 @@ const LeaderboardPage: React.FC = () => {
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
                               {entry.display_name}
-                              {entry.is_current_user && (
-                                <span className="ml-2 text-xs text-blue-600">(You)</span>
+                              {entry.participant_mobile && (
+                                <span className="ml-2 text-xs text-gray-500">({entry.participant_mobile})</span>
+                              )}
+                              {!entry.participant_mobile && (
+                                <span className="ml-2 text-xs text-gray-400">()</span>
                               )}
                             </div>
                           </div>

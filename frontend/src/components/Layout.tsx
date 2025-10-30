@@ -47,7 +47,7 @@ const Layout: React.FC = () => {
               <div className="flex-shrink-0 flex items-center">
                 <Link to="/" className="flex items-center space-x-3">
                   <div className="bg-white p-2 rounded-lg">
-                    <img src="/ogs-logo.png" alt="OGS Logo" className="h-10 w-auto" />
+                    <img src="/ogs-logo.png" alt="OGS Logo" className="h-8 w-auto" />
                   </div>
                   <span className="text-xl font-bold text-gray-900">TechXConf Quiz</span>
                 </Link>

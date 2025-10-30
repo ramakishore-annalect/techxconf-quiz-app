@@ -4,7 +4,17 @@ import enum
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, DateTime, Enum, JSON, Index
+from sqlalchemy import (
+    Column,
+    String,
+    Integer,
+    ForeignKey,
+    Boolean,
+    DateTime,
+    Enum,
+    JSON,
+    Index,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -25,7 +35,13 @@ class QuizSession(BaseModel):
 
     __tablename__ = "quiz_sessions"
 
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # Nullable for anonymous users
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )  # Nullable for anonymous users
+
+    # Participant information (for non-logged-in users)
+    participant_name = Column(String(100), nullable=True)
+    participant_mobile = Column(String(15), nullable=True, index=True)
 
     # Session configuration
     quiz_definition = Column(JSON, nullable=False)  # List of question IDs and ordering
@@ -37,7 +53,9 @@ class QuizSession(BaseModel):
     expires_at = Column(DateTime, nullable=False)
 
     # Session state
-    status = Column(Enum(SessionStatus), default=SessionStatus.IN_PROGRESS, nullable=False)
+    status = Column(
+        Enum(SessionStatus), default=SessionStatus.IN_PROGRESS, nullable=False
+    )
     current_question_index = Column(Integer, default=0, nullable=False)
 
     # Results
@@ -53,16 +71,21 @@ class QuizSession(BaseModel):
         "SessionAnswer",
         back_populates="session",
         order_by="SessionAnswer.created_at",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:
-        return f"<QuizSession(id={self.id}, user_id={self.user_id}, status={self.status})>"
+        return (
+            f"<QuizSession(id={self.id}, user_id={self.user_id}, status={self.status})>"
+        )
 
     @property
     def is_active(self) -> bool:
         """Check if session is active."""
-        return self.status == SessionStatus.IN_PROGRESS and datetime.utcnow() < self.expires_at
+        return (
+            self.status == SessionStatus.IN_PROGRESS
+            and datetime.utcnow() < self.expires_at
+        )
 
     @property
     def is_finished(self) -> bool:
@@ -103,7 +126,9 @@ class SessionAnswer(BaseModel):
 
     __tablename__ = "session_answers"
 
-    session_id = Column(UUID(as_uuid=True), ForeignKey("quiz_sessions.id"), nullable=False)
+    session_id = Column(
+        UUID(as_uuid=True), ForeignKey("quiz_sessions.id"), nullable=False
+    )
     question_id = Column(UUID(as_uuid=True), ForeignKey("questions.id"), nullable=False)
 
     # Answer data
@@ -131,11 +156,18 @@ class Leaderboard(BaseModel):
 
     __tablename__ = "leaderboard"
 
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # Nullable for anonymous
-    session_id = Column(UUID(as_uuid=True), ForeignKey("quiz_sessions.id"), nullable=False)
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )  # Nullable for anonymous
+    session_id = Column(
+        UUID(as_uuid=True), ForeignKey("quiz_sessions.id"), nullable=False
+    )
 
     # Player info
     display_name = Column(String(100), nullable=True)
+    participant_mobile = Column(
+        String(15), nullable=True
+    )  # Mobile number for anonymous participants
 
     # Performance metrics
     score = Column(Integer, nullable=False)

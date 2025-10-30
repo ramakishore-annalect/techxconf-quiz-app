@@ -1,94 +1,92 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: quiz_postgres
+    container_name: quiz_postgres_local
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-quiz_db}
-      POSTGRES_USER: ${POSTGRES_USER:-quiz_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-quiz_password}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: quiz_db
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_local:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-quiz_user} -d ${POSTGRES_DB:-quiz_db}"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - quiz_network
 
-  # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: quiz_redis
+    container_name: quiz_redis_local
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 10s
       timeout: 3s
       retries: 5
     networks:
       - quiz_network
 
-  # FastAPI Backend
-  web:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    container_name: quiz_backend
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-quiz_user}:${POSTGRES_PASSWORD:-quiz_password}@postgres:5432/${POSTGRES_DB:-quiz_db}
-      - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=${SECRET_KEY:-local-dev-secret-key}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-local-dev-jwt-key}
-      - DEBUG=${DEBUG:-True}
-      - ENVIRONMENT=${ENVIRONMENT:-development}
-      - CORS_ORIGINS=["http://localhost:3000","http://localhost:5173","http://127.0.0.1:3000"]
+    container_name: quiz_backend_local
     ports:
       - "8000:8000"
+    environment:
+      ENVIRONMENT: development
+      DEBUG: "true"
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/quiz_db
+      REDIS_URL: redis://redis:6379/0
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: quiz_db
+      SECRET_KEY: ${SECRET_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS}
+      QUESTION_TIME_LIMIT_SECONDS: ${QUESTION_TIME_LIMIT_SECONDS}
+      SESSION_EXPIRE_HOURS: ${SESSION_EXPIRE_HOURS}
+      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:5173"]'
     volumes:
-      - .:/app
-      - /app/__pycache__
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+      - ./scripts:/app/scripts
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     networks:
       - quiz_network
 
-  # React Frontend
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
-    container_name: quiz_frontend
-    environment:
-      - VITE_API_URL=http://localhost:8000/api/v1
+    container_name: quiz_frontend_local
     ports:
       - "3000:3000"
+    environment:
+      VITE_API_URL: http://localhost:8000/api/v1
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    stdin_open: true
-    tty: true
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
     depends_on:
-      - web
+      - backend
     networks:
       - quiz_network
 
 volumes:
-  postgres_data:
-  redis_data:
+  postgres_data_local:
 
 networks:
   quiz_network:
