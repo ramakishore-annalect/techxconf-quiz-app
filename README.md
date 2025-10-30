@@ -38,8 +38,94 @@ A complete, production-ready quiz platform with a FastAPI backend and modern Rea
 
 - Docker and Docker Compose
 - Python 3.11+ (for local development)
+- Node.js 18+ and npm (for frontend development)
 
-### 1. Clone and Setup
+### Running Locally with Docker
+
+The easiest way to run the application locally is using Docker Compose with the local configuration file.
+
+#### 1. Clone and Setup
+
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd techxconf_quiz_app
+```
+
+#### 2. Start All Services
+
+```bash
+# Start all services (Backend, PostgreSQL, Redis, Frontend)
+docker compose -f docker-compose.local.yml up -d
+
+# View logs
+docker compose -f docker-compose.local.yml logs -f
+
+# View specific service logs
+docker compose -f docker-compose.local.yml logs -f backend
+docker compose -f docker-compose.local.yml logs -f frontend
+```
+
+#### 3. Initialize Database
+
+```bash
+# Run database migrations
+docker compose -f docker-compose.local.yml exec backend alembic upgrade head
+
+# Create admin user (if needed for admin access)
+docker compose -f docker-compose.local.yml exec backend python -c "
+from app.core.database import get_db
+from app.models.user import User
+from app.utils.security import get_password_hash
+import asyncio
+
+async def create_admin():
+    async for db in get_db():
+        admin = User(
+            email='admin@example.com',
+            hashed_password=get_password_hash('admin123'),
+            display_name='Admin',
+            is_admin=True,
+            is_active=True
+        )
+        db.add(admin)
+        await db.commit()
+        print('Admin user created!')
+        break
+
+asyncio.run(create_admin())
+"
+```
+
+#### 4. Access the Application
+
+The application will be available at:
+- **Frontend (Quiz App)**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+- **Health Check**: http://localhost:8000/health
+
+#### 5. Stop Services
+
+```bash
+# Stop all services
+docker compose -f docker-compose.local.yml down
+
+# Stop and remove volumes (clears database)
+docker compose -f docker-compose.local.yml down -v
+```
+
+### Import Sample Questions
+
+To add quiz questions from an Excel file:
+
+```bash
+# Copy your Excel file to the project directory
+# Then import it using the backend container
+docker compose -f docker-compose.local.yml exec backend python scripts/import_xlsx.py your_questions.xlsx
+```
+
+### 1. Clone and Setup (Production Deployment)
 
 ```bash
 # Clone the repository
@@ -53,7 +139,7 @@ cp .env.example .env
 # The default values work for Docker Compose setup
 ```
 
-### 2. Run with Docker Compose (Recommended)
+### 2. Run with Docker Compose (Production)
 
 ```bash
 # Start all services (API, PostgreSQL, Redis, Monitoring)
